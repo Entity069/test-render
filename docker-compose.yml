@@ -1,0 +1,21 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flask-command-runner:latest
+    container_name: flask-command-runner
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - COMMAND_TIMEOUT=15
+      - PYTHONUNBUFFERED=1
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    restart: unless-stopped

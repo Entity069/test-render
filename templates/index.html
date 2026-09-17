@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A modern web-based command execution console built with Flask and Docker.">
+  <title>Command Runner Console | Flask & Docker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Flask Command Runner</h1>
+          <p class="brand-subtitle">Interactive container execution console</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span>Container Active</span>
+        </div>
+        <div class="badge badge-subtle">Timeout: {{ timeout }}s</div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Quick Presets -->
+      <section class="presets-section">
+        <span class="presets-label">Quick Commands:</span>
+        <div class="presets-list" id="presetsList">
+          <button type="button" class="preset-btn" data-cmd="uname -a">uname -a</button>
+          <button type="button" class="preset-btn" data-cmd="python3 --version">python3 --version</button>
+          <button type="button" class="preset-btn" data-cmd="ls -la">ls -la</button>
+          <button type="button" class="preset-btn" data-cmd="df -h">df -h</button>
+          <button type="button" class="preset-btn" data-cmd="cat /etc/os-release">cat /etc/os-release</button>
+          <button type="button" class="preset-btn" data-cmd="whoami && id">whoami &amp; id</button>
+        </div>
+      </section>
+
+      <!-- Command Input Form -->
+      <section class="input-card">
+        <form id="commandForm" method="POST" action="/" class="command-form">
+          <div class="input-wrapper">
+            <span class="prompt-symbol">$</span>
+            <input 
+              type="text" 
+              id="commandInput" 
+              name="command" 
+              class="command-input" 
+              placeholder="Enter shell command (e.g., uptime, ls -la, python3 -c 'print(42*42)')..." 
+              value="{{ command or '' }}" 
+              autocomplete="off" 
+              autofocus 
+              required
+            >
+            <button type="button" id="clearInputBtn" class="clear-input-btn" title="Clear input" aria-label="Clear input">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="form-actions">
+            <span class="shortcut-hint">Press <kbd>Enter</kbd> to execute &bull; <kbd>&uarr;</kbd><kbd>&darr;</kbd> for history</span>
+            <button type="submit" id="executeBtn" class="btn btn-primary">
+              <span class="btn-spinner" id="btnSpinner"></span>
+              <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span id="btnText">Run Command</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Terminal Output Window -->
+      <section class="terminal-card">
+        <div class="terminal-header">
+          <div class="terminal-controls">
+            <span class="terminal-dot dot-red"></span>
+            <span class="terminal-dot dot-yellow"></span>
+            <span class="terminal-dot dot-green"></span>
+            <span class="terminal-title">bash &mdash; output</span>
+          </div>
+
+          <div class="terminal-actions">
+            <span id="executionBadge" class="terminal-badge {% if result %}{% if result.returncode == 0 %}badge-success{% else %}badge-error{% endif %}{% else %}hidden{% endif %}">
+              {% if result %}
+                {% if result.returncode == 0 %}
+                  &check; Exit 0
+                {% else %}
+                  &cross; Exit {{ result.returncode }}
+                {% endif %}
+              {% endif %}
+            </span>
+            <span id="durationBadge" class="terminal-badge badge-neutral {% if not result %}hidden{% endif %}">
+              {% if result %}{{ result.execution_time }}s{% endif %}
+            </span>
+            <button type="button" id="copyOutputBtn" class="terminal-btn" title="Copy output to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copy</span>
+            </button>
+            <button type="button" id="clearTerminalBtn" class="terminal-btn" title="Clear terminal">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="terminal-body" id="terminalBody">
+          <!-- Empty state -->
+          <div id="terminalPlaceholder" class="terminal-placeholder {% if result %}hidden{% endif %}">
+            <div class="placeholder-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+              </svg>
+            </div>
+            <p class="placeholder-text">Ready for execution. Enter a command above or click a preset to start.</p>
+            <p class="placeholder-subtext">Output and errors will stream here in real time.</p>
+          </div>
+
+          <!-- Active Output Content -->
+          <div id="terminalContent" class="terminal-content {% if not result %}hidden{% endif %}">
+            <div class="terminal-command-line">
+              <span class="cmd-prompt">$</span>
+              <span id="terminalCommandDisplay" class="cmd-text">{{ result.command if result else '' }}</span>
+            </div>
+            
+            <div id="terminalStdout" class="terminal-output stdout {% if not result or not result.stdout %}hidden{% endif %}">{{ result.stdout if result else '' }}</div>
+            
+            <div id="terminalStderr" class="terminal-output stderr {% if not result or not result.stderr %}hidden{% endif %}">{{ result.stderr if result else '' }}</div>
+
+            {% if result and not result.stdout and not result.stderr %}
+            <div class="terminal-output empty-notice">[Command completed with no output]</div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer Info / Security Note -->
+      <footer class="info-footer">
+        <div class="info-card">
+          <div class="info-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <div class="info-content">
+            <h4>Container Sandboxed Environment</h4>
+            <p>Commands execute inside the isolated Docker container under an unprivileged user context. A strict {{ timeout }}-second timeout safeguard prevents persistent blocking processes.</p>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast hidden">Output copied to clipboard!</div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
