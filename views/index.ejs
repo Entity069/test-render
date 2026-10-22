@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="A modern web-based command execution console built with Flask and Docker.">
-  <title>Command Runner Console | Flask & Docker</title>
+  <meta name="description" content="A web-based command execution console built with Node.js and Docker.">
+  <title>Command Runner Console | Node.js & Docker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <div class="app-container">
@@ -22,16 +22,16 @@
           </svg>
         </div>
         <div>
-          <h1 class="brand-title">Flask Command Runner</h1>
+          <h1 class="brand-title">Node.js Command Runner</h1>
           <p class="brand-subtitle">Interactive container execution console</p>
         </div>
       </div>
       <div class="header-badges">
         <div class="status-indicator">
           <span class="status-dot"></span>
-          <span>Container Active</span>
+          <span>Console Ready</span>
         </div>
-        <div class="badge badge-subtle">Timeout: {{ timeout }}s</div>
+        <div class="badge badge-subtle">Timeout: <%= timeout %>s</div>
       </div>
     </header>
 
@@ -41,7 +41,7 @@
         <span class="presets-label">Quick Commands:</span>
         <div class="presets-list" id="presetsList">
           <button type="button" class="preset-btn" data-cmd="uname -a">uname -a</button>
-          <button type="button" class="preset-btn" data-cmd="python3 --version">python3 --version</button>
+          <button type="button" class="preset-btn" data-cmd="node --version">node --version</button>
           <button type="button" class="preset-btn" data-cmd="ls -la">ls -la</button>
           <button type="button" class="preset-btn" data-cmd="df -h">df -h</button>
           <button type="button" class="preset-btn" data-cmd="cat /etc/os-release">cat /etc/os-release</button>
@@ -59,8 +59,8 @@
               id="commandInput" 
               name="command" 
               class="command-input" 
-              placeholder="Enter shell command (e.g., uptime, ls -la, python3 -c 'print(42*42)')..." 
-              value="{{ command or '' }}" 
+              placeholder="Enter shell command (e.g., uptime, ls -la, node -e 'console.log(42*42)')..." 
+              value="<%= command %>" 
               autocomplete="off" 
               autofocus 
               required
@@ -96,17 +96,17 @@
           </div>
 
           <div class="terminal-actions">
-            <span id="executionBadge" class="terminal-badge {% if result %}{% if result.returncode == 0 %}badge-success{% else %}badge-error{% endif %}{% else %}hidden{% endif %}">
-              {% if result %}
-                {% if result.returncode == 0 %}
+            <span id="executionBadge" class="terminal-badge <%= result ? (result.returncode === 0 ? 'badge-success' : 'badge-error') : 'hidden' %>">
+              <% if (result) { %>
+                <% if (result.returncode === 0) { %>
                   &check; Exit 0
-                {% else %}
-                  &cross; Exit {{ result.returncode }}
-                {% endif %}
-              {% endif %}
+                <% } else { %>
+                  &cross; Exit <%= result.returncode %>
+                <% } %>
+              <% } %>
             </span>
-            <span id="durationBadge" class="terminal-badge badge-neutral {% if not result %}hidden{% endif %}">
-              {% if result %}{{ result.execution_time }}s{% endif %}
+            <span id="durationBadge" class="terminal-badge badge-neutral <%= result ? '' : 'hidden' %>">
+              <% if (result) { %><%= result.execution_time %>s<% } %>
             </span>
             <button type="button" id="copyOutputBtn" class="terminal-btn" title="Copy output to clipboard">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -127,7 +127,7 @@
 
         <div class="terminal-body" id="terminalBody">
           <!-- Empty state -->
-          <div id="terminalPlaceholder" class="terminal-placeholder {% if result %}hidden{% endif %}">
+          <div id="terminalPlaceholder" class="terminal-placeholder <%= result ? 'hidden' : '' %>">
             <div class="placeholder-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polyline points="4 17 10 11 4 5"></polyline>
@@ -135,23 +135,23 @@
               </svg>
             </div>
             <p class="placeholder-text">Ready for execution. Enter a command above or click a preset to start.</p>
-            <p class="placeholder-subtext">Output and errors will stream here in real time.</p>
+            <p class="placeholder-subtext">Output and errors appear here when the command finishes.</p>
           </div>
 
           <!-- Active Output Content -->
-          <div id="terminalContent" class="terminal-content {% if not result %}hidden{% endif %}">
+          <div id="terminalContent" class="terminal-content <%= result ? '' : 'hidden' %>">
             <div class="terminal-command-line">
               <span class="cmd-prompt">$</span>
-              <span id="terminalCommandDisplay" class="cmd-text">{{ result.command if result else '' }}</span>
+              <span id="terminalCommandDisplay" class="cmd-text"><%= result ? result.command : '' %></span>
             </div>
             
-            <div id="terminalStdout" class="terminal-output stdout {% if not result or not result.stdout %}hidden{% endif %}">{{ result.stdout if result else '' }}</div>
+            <div id="terminalStdout" class="terminal-output stdout <%= result && result.stdout ? '' : 'hidden' %>"><%= result ? result.stdout : '' %></div>
             
-            <div id="terminalStderr" class="terminal-output stderr {% if not result or not result.stderr %}hidden{% endif %}">{{ result.stderr if result else '' }}</div>
+            <div id="terminalStderr" class="terminal-output stderr <%= result && result.stderr ? '' : 'hidden' %>"><%= result ? result.stderr : '' %></div>
 
-            {% if result and not result.stdout and not result.stderr %}
+            <% if (result && !result.stdout && !result.stderr) { %>
             <div class="terminal-output empty-notice">[Command completed with no output]</div>
-            {% endif %}
+            <% } %>
           </div>
         </div>
       </section>
@@ -165,8 +165,8 @@
             </svg>
           </div>
           <div class="info-content">
-            <h4>Container Sandboxed Environment</h4>
-            <p>Commands execute inside the isolated Docker container under an unprivileged user context. A strict {{ timeout }}-second timeout safeguard prevents persistent blocking processes.</p>
+            <h4>Command Execution Environment</h4>
+            <p>Commands run as the application user on your host or inside Docker. Execution is limited to <%= timeout %> seconds.</p>
           </div>
         </div>
       </footer>
@@ -176,6 +176,6 @@
   <!-- Toast notification -->
   <div id="toast" class="toast hidden">Output copied to clipboard!</div>
 
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="/static/js/app.js"></script>
 </body>
 </html>

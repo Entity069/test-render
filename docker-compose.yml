@@ -3,14 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: flask-command-runner:latest
-    container_name: flask-command-runner
+    image: node-command-runner:latest
+    init: true
     ports:
       - "5000:5000"
     environment:
       - PORT=5000
       - COMMAND_TIMEOUT=15
-      - PYTHONUNBUFFERED=1
+      - NODE_ENV=production
     security_opt:
       - no-new-privileges:true
     deploy:

@@ -1,39 +1,25 @@
-# Base Python image
-FROM python:3.11-slim
+FROM node:24-bookworm-slim
 
-# Prevent Python from writing .pyc files and enable unbuffered logging
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+ENV NODE_ENV=production \
+    PORT=5000 \
+    COMMAND_TIMEOUT=15
 
 WORKDIR /app
 
-# Install curl for health check
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+COPY --chown=node:node package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --chown=node:node app.js ./
+COPY --chown=node:node views ./views
+COPY --chown=node:node static ./static
 
-# Create an unprivileged user for running the application
-RUN useradd -m -u 10001 appuser
+RUN chown node:node /app
 
-# Copy application files
-COPY . .
+USER node
 
-# Set proper permissions
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
-# Expose port
 EXPOSE 5000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD node -e "fetch('http://127.0.0.1:' + process.env.PORT + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-# Start application using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "60", "app:app"]
+CMD ["node", "app.js"]

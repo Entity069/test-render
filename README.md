@@ -1,122 +1,97 @@
-# Flask Command Runner Console
+# Node.js Command Runner Console
 
-A modern, responsive web console built with **Flask**, **Vanilla CSS**, and **Docker Compose** that executes shell commands in an isolated container environment and streams output in real time.
+A web console built with Node.js, Express, EJS, and vanilla JavaScript for running shell commands locally or inside Docker. It displays stdout, stderr, exit codes, and execution time after each command finishes.
 
----
+## Run locally
 
-## Features
+Requires Node.js 22 or newer and npm.
 
-- **Terminal-Inspired UI**: Dark mode developer aesthetic featuring Google Fonts (`Inter` & `JetBrains Mono`), glassmorphic panels, and execution badges.
-- **Real-Time Execution & Fallback**:
-  - Asynchronous AJAX execution with JSON API (`/api/execute`) for seamless interaction without page reloads.
-  - Progressive enhancement: standard HTML POST form fallback works even if JavaScript is disabled.
-- **Terminal Capabilities**:
-  - Command history navigation with <kbd>&uarr;</kbd> and <kbd>&darr;</kbd> arrow keys.
-  - Quick-preset command pills (`uname -a`, `python3 --version`, `ls -la`, `df -h`, `cat /etc/os-release`, `whoami & id`).
-  - One-click copy output to clipboard with toast notification.
-  - Color-coded exit codes (Exit 0 vs. Exit non-zero).
-  - Distinct stderr and stdout output panels.
-- **Safeguards & Containerization**:
-  - Configurable execution timeout (`COMMAND_TIMEOUT`, default: 15 seconds) to prevent hanging processes.
-  - Non-root unprivileged container user (`appuser`).
-  - Resource limits (`cpus: 1.0`, `memory: 512M`) via Docker Compose.
-  - Docker health check on `/health`.
+```bash
+npm ci
+npm start
+```
 
----
+Open <http://localhost:5000>. Use `npm run dev` to restart the server automatically when its JavaScript files change.
 
-## Quickstart with Docker Compose (Recommended)
-
-### 1. Build and Start the Container
+## Run with Docker Compose
 
 ```bash
 docker compose up --build -d
 ```
 
-### 2. Access the Web Console
-
-Open your browser and visit:
-```
-http://localhost:5000
-```
-
-### 3. Check Container Status and Logs
+Open <http://localhost:5000>. The container runs Node.js 24 as the unprivileged `node` user, with a health check and Compose limits of one CPU and 512 MB of memory.
 
 ```bash
-docker compose ps
 docker compose logs -f
-```
-
-### 4. Stop the Container
-
-```bash
 docker compose down
 ```
 
----
+## Console features
 
-## Quickstart Locally (Without Docker)
+- Execute commands through the JSON API without reloading the page.
+- Submit the HTML form with JavaScript disabled.
+- Navigate command history using the up and down arrow keys.
+- Run presets, including `node --version`, `uname -a`, and `ls -la`.
+- Copy output, clear the terminal, and view separate stdout and stderr panels.
+- Stop commands after the configured timeout, keeping output produced before termination.
 
-### 1. Set Up Virtual Environment
+Commands run independently in the server's working directory. Changes such as `cd` and shell variables do not persist between requests. Output is returned when execution finishes; it is not streamed.
+
+## API
+
+### `POST /api/execute`
+
+Accepts JSON or URL encoded form data with a `command` string:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+curl http://localhost:5000/api/execute \
+  -H 'Content-Type: application/json' \
+  -d '{"command":"node --version"}'
 ```
 
-### 2. Run the Development Server
+The response keeps the original API's fields:
 
-```bash
-python3 app.py
+```json
+{
+  "command": "printf hello",
+  "stdout": "hello",
+  "stderr": "",
+  "returncode": 0,
+  "execution_time": 0.012,
+  "timed_out": false
+}
 ```
 
-Access the application at `http://localhost:5000`.
+Command results always return HTTP 200, including command failures and timeouts. Inspect `returncode`, `stderr`, and `timed_out` to determine the outcome. Empty or invalid command values return `returncode: -1`; malformed JSON returns HTTP 400.
 
----
+### `GET /health`
 
-## API Reference
+```json
+{"status":"healthy","service":"node-command-runner"}
+```
 
-### 1. `POST /api/execute`
-Execute a shell command asynchronously and receive structured JSON output.
-
-- **Request Headers**: `Content-Type: application/json`
-- **Request Body**:
-  ```json
-  {
-    "command": "uname -a"
-  }
-  ```
-- **Response**: `200 OK`
-  ```json
-  {
-    "command": "uname -a",
-    "stdout": "Linux 6.8.0 ... x86_64 GNU/Linux\n",
-    "stderr": "",
-    "returncode": 0,
-    "execution_time": 0.012,
-    "timed_out": false
-  }
-  ```
-
-### 2. `GET /health`
-Container health check endpoint.
-- **Response**: `{"service": "flask-command-runner", "status": "healthy"}`
-
----
-
-## Environment Variables
+## Configuration
 
 | Variable | Description | Default |
-| :--- | :--- | :--- |
-| `PORT` | Listening HTTP port | `5000` |
-| `COMMAND_TIMEOUT` | Max execution duration in seconds before terminating a command | `15` |
-| `FLASK_DEBUG` | Enable Flask debug mode (`true` or `false`) | `false` |
+| --- | --- | --- |
+| `PORT` | HTTP port, from 1 to 65535 | `5000` |
+| `COMMAND_TIMEOUT` | Maximum command duration in whole seconds, from 1 to 2147483 | `15` |
+| `NODE_ENV` | Set to `production` for production Express behavior and template caching | Set by Docker |
 
----
+For example:
 
-## Security Considerations
+```bash
+PORT=3000 COMMAND_TIMEOUT=30 npm start
+```
 
-> [!WARNING]
-> Executing commands submitted over the web inherently grants shell execution within the host or container environment.
-> - **Container Isolation**: When running via Docker, commands are isolated from your host filesystem and run under an unprivileged user (`appuser`).
-> - **Do not expose to public networks**: Do not expose port 5000 to the public internet without an authentication layer (e.g. reverse proxy with Basic Auth, OAuth, or VPN).
+## Tests
+
+```bash
+npm test
+```
+
+Uses Node.js's built-in test runner. The tests start the application on an available local port and exercise the HTTP routes and command execution.
+
+## Access
+
+This application intentionally executes submitted shell commands and has no authentication. Run it on a trusted network. Local execution uses your account's permissions; Docker execution uses the container's `node` account. Add authentication through a reverse proxy or VPN before making the console reachable by other users.
